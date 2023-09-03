@@ -10,6 +10,7 @@ from datetime import datetime
 #import dt
 import warnings
 import os
+import pygsheets
 import glob
 import chardet
 
@@ -31,14 +32,41 @@ scopes = [
 ]
 
 credentials = ServiceAccountCredentials.from_json_keyfile_name("compras-380500-0f03f7c142be.json", scopes) 
-file = gspread.authorize(credentials)# authenticate the JSON key with gspread
+#file = gspread.authorize(credentials)# authenticate the JSON key with gspread
+file = pygsheets.authorize(service_file="compras-380500-0f03f7c142be.json")
+#gc = pygsheets.authorize(service_file='/Users/erikrood/desktop/QS_Model/creds.json')
+ss = file.open('EficienciaInventarios')
 
-ss = file.open("EficienciaInventarios")       
-V3m = ss.worksheet("Ventas3m") 
-V1y = ss.worksheet("Ventas1y") 
-InDB = ss.worksheet("InventoryDB")
-AcoDiario = ss.worksheet("AcomodoDiario")
-Vdiaria = ss.worksheet("Venta Diaria")
+print(ss)
+##V3m = ss["Ventas3m"] 
+V3m = ss[0]     
+#V3m = ss.worksheet("Ventas3m") 
+#V1y = ss.worksheet("Ventas1y") 
+##V1y = ss["Ventas1y"]
+V1y = ss[1]
+#InDB = ss.worksheet("InventoryDB")
+##InDB = ss["InventoryDB"]
+InDB = ss[4]
+#AcoDiario = ss.worksheet("AcomodoDiario")
+##AcoDiario = ss["AcomodoDiario"]
+AcoDiario = ss[3]
+#Vdiaria = ss.worksheet("Venta Diaria")
+#Vdiaria = ss["Venta Diaria"]
+Vdiaria = ss[2]
+#VentasDiaframe = pd.DataFrame()
+#VentasDiaframe['name'] = ['Pedro', 'Steve', 'Sarah','jose']
+#print(VentasDiaframe)
+#print(Vdiaria)
+# Obtiene la lista de hojas
+#sheets_list = ss.worksheets()
+
+# Imprime el nombre de cada hoja
+#for sheet in sheets_list:
+#    print(sheet.title)
+#AcoDiario.clear(start='A1', end=None, fields='*')
+#AcoDiario.set_dataframe(VentasDiaframe,(0,0))
+#set_with_dataframe(worksheet=Vdiaria, dataframe=VentasDiaframe, include_index=False,
+#include_column_header=True, resize=True)
 
 @Gooey(program_name="Capacidad diaria Tiendas")
 def parse_args():
@@ -83,6 +111,11 @@ def parse_args():
 
 def Principal(Directorio_de_trabajo):
 	#path = os.getcwd()
+	global V1y
+	global V3m
+	global Vdiaria
+	global AcoDiario
+	global InDB
 	path = Directorio_de_trabajo
 	xls_files = glob.glob(os.path.join(path, "*.xls"))
 	csv_files = glob.glob(os.path.join(path, "*.csv"))
@@ -103,6 +136,10 @@ def Principal(Directorio_de_trabajo):
 	for filename in xls_files:
 	    df = pd.read_excel(filename,header=None)
 	    Xfiles.append(df)
+	    ####dl9 = pd.concat([dl9, Xfiles[j]])
+	    #x= [Xfiles,df]
+	    #Xfiles = pd.concat(x,ignore_index=True)
+
 
 
 
@@ -111,7 +148,8 @@ def Principal(Directorio_de_trabajo):
 	    #	enc = chardet.detect(f.read())
 	    #df = pd.read_csv(filename,header=None,encoding = enc['encoding'])
 	    df = pd.read_csv(filename,header=None,encoding='latin-1')
-	    Cfiles.append(df)    
+	    Cfiles.append(df)
+	    #Cfiles = pd.concat(Cfiles,df)   
 
 	#print(Xfiles)
 	#print(Cfiles)
@@ -140,10 +178,18 @@ def Principal(Directorio_de_trabajo):
 			#print(dias.days)
 			#print(dias.dtypes)
 			if dias.days in range(89,93) :
-				dl=dl.append(Xfiles[j])
+				#dl=dl.append(Xfiles[j])
+				list_of_dfs = [dl, Xfiles[j]]
+				dl = pd.concat(list_of_dfs, ignore_index=True)
+				#dl=pd.concat(dl,Xfiles[j])
 				print("Archivo ",xls_files[j]," de ventas ultimos 3 meses encontrado")
 			elif dias.days==365:
-				dl8=dl8.append(Xfiles[j])
+				#dl8=dl8.append(Xfiles[j])
+				#dl=dl.append(Xfiles[j])
+				list_of_dfs1 = [dl8, Xfiles[j]]
+				dl8 = pd.concat(list_of_dfs1, ignore_index=True)
+				#dl8 = pd.concat(dl8,Xfiles[j])
+
 				print("Archivo ",xls_files[j]," de ventas ultimo año encontrado")
 
 		elif Xfiles[j][0][0]=="Inventory Audit Trail":  #Busca archivo de auditoria del dia
@@ -155,7 +201,11 @@ def Principal(Directorio_de_trabajo):
 			dias = (fecha[1] - fecha[0]) #/ np.timedelta64(1, 'D')
 			#print(dias.days)
 			if dias.days==0:
-			    dl9=dl9.append(Xfiles[j])
+			    list_of_dfs2 = [dl9, Xfiles[j]]
+			    dl9 = pd.concat(list_of_dfs2, ignore_index=True)
+
+			    #dl9=dl9.append(Xfiles[j])
+			    #dl9 = pd.concat(dl9,Xfiles[j])
 			    indexDeleted = dl9[dl9[8] != 'CategorizingStoreNumber'].index
 			    dl9.drop(indexDeleted,inplace=True)
 			    result = dl9[0].str.extract(r'(\d{1,3})').squeeze().str.zfill(3)
@@ -190,7 +240,11 @@ def Principal(Directorio_de_trabajo):
 			dias = (fecha[1] - fecha[0]) #/ np.timedelta64(1, 'D')
 			print(dias.days)
 			if dias.days==0:
-			    dl0=dl0.append(Cfiles[j])
+			    #dl0=dl0.append(Cfiles[j])
+			    #dl=dl.append(Xfiles[j])
+			    list_of_dfs3 = [dl0, Cfiles[j]]
+			    dl0 = pd.concat(list_of_dfs3, ignore_index=True)
+			    dl0.to_excel('dl0.xlsx',index=False,header=True)
 			    dl0 = dl0.iloc[:,[3,7,46,47,48,60,61,62]]
 			    #dl0.to_excel('entas_partes_diarias.xlsx',index=False,header=True)
 			    #dl0.dropna(subset = [3],inplace=True)
@@ -487,25 +541,76 @@ def Principal(Directorio_de_trabajo):
 	# write to dataframe
 
 	print("Updating Google Sheet Report......")
-	V3m.clear()
-	set_with_dataframe(worksheet=V3m, dataframe=dl, include_index=False,
-	include_column_header=True, resize=True)
+	#Vdiaria.clear()
+	#Vdiaria.to_excel('Vdiaria.xlsx',index=False,header=True)
+	#InDB.to_excel('InDB.xlsx',index=False,header=True)
+	#Vdiaria.to_excel('Vdiaria.xlsx',index=False,header=True)
+	#Vdiaria.to_excel('Vdiaria.xlsx',index=False,header=True)
+	#Vdiaria.to_excel('Vdiaria.xlsx',index=False,header=True)
+	#Vdiaria.to_excel('Vdiaria.xlsx',index=False,header=True)
+	#Vdiaria.set_dataframe(VentasDiaframe)
+	Vdiaria.clear(start='A1', end=None, fields='*')
+	Vdiaria.set_dataframe(VentasDiaframe,(0,0))
+	#set_with_dataframe(worksheet=Vdiaria, dataframe=VentasDiaframe, include_index=False,
+	#include_column_header=True, resize=True)
 	print("Updating Google Sheet Report......")
-	V1y.clear()
-	set_with_dataframe(worksheet=V1y, dataframe=dl8, include_index=False,
-	include_column_header=True, resize=True)  
-	print("Updating Google Sheet Report......")  
-	InDB.clear()
-	set_with_dataframe(worksheet=InDB, dataframe=Inventarioframe, include_index=False,
-	include_column_header=True, resize=True)
+	#InDB.clear()
+	InDB.clear(start='A1', end=None, fields='*')
+	InDB.set_dataframe(Inventarioframe,(0,0))
+	#set_with_dataframe(worksheet=InDB, dataframe=Inventarioframe, include_index=False,
+	#include_column_header=True, resize=True)
 	print("Updating Google Sheet Report......")
-	AcoDiario.clear()
-	set_with_dataframe(worksheet=AcoDiario, dataframe=AcomodoDiaframe, include_index=False,
-	include_column_header=True, resize=True)
+	#AcoDiario.clear()
+	AcoDiario.clear(start='A1', end=None, fields='*')
+	AcoDiario.set_dataframe(AcomodoDiaframe,(0,0))
+	#set_with_dataframe(worksheet=AcoDiario, dataframe=AcomodoDiaframe, include_index=False,
+	#include_column_header=True, resize=True)
 	print("Updating Google Sheet Report......")
-	Vdiaria.clear()
-	set_with_dataframe(worksheet=Vdiaria, dataframe=VentasDiaframe, include_index=False,
-	include_column_header=True, resize=True)
+	#V1y.clear()
+	V1y.clear(start='A1', end=None, fields='*')
+	V1y.set_dataframe(dl8,(0,0))
+	#set_with_dataframe(V1y, dl8)
+	#set_with_dataframe(worksheet=V1y, dataframe=dl8, include_index=False,
+	#include_column_header=True, resize=True)  
+	print("Updating Google Sheet Report......")
+	V3m.clear(start='A1', end=None, fields='*')
+	V3m.set_dataframe(dl,(0,0))
+	#V3m.clear()
+	#dl.to_excel('dl.xlsx',index=False,header=True)
+	#valores_a_eliminar = ["Stores: ", "Part Types: ", "Sort By: "]
+	# Selecciona las filas que no tienen los valores a eliminar en la 5ta columna
+	#dl = dl.loc[~dl.iloc[:, 4].isin(valores_a_eliminar)]
+	# El índice del DataFrame puede quedar desordenado, puedes resetearlo si lo deseas
+	#dl = dl.reset_index(drop=True)
+	#dl = dl.dropna(subset=[4])
+	# El índice del DataFrame puede quedar desordenado, puedes resetearlo si lo deseas
+	#dl= dl.reset_index(drop=True)
+	#column_types = dl.dtypes
+	# Filtrar las columnas que son de tipo int64
+	#int64_columns = column_types[column_types == 'int64']
+
+	# Imprimir las columnas de tipo int64
+	#print(int64_columns)
+	#dl.to_excel('dltype.xlsx',index=False,header=True)
+	#set_with_dataframe(V3m, dl)
+	#set_with_dataframe(worksheet=V3m, dataframe=dl, include_index=False,
+	#include_column_header=True, resize=True)
+	#print("Updating Google Sheet Report......")
+	#V1y.clear()
+	#set_with_dataframe(worksheet=V1y, dataframe=dl8, include_index=False,
+	#include_column_header=True, resize=True)  
+	#print("Updating Google Sheet Report......")  
+	#InDB.clear()
+	#set_with_dataframe(worksheet=InDB, dataframe=Inventarioframe, include_index=False,
+	#include_column_header=True, resize=True)
+	#print("Updating Google Sheet Report......")
+	#AcoDiario.clear()
+	#set_with_dataframe(worksheet=AcoDiario, dataframe=AcomodoDiaframe, include_index=False,
+	#include_column_header=True, resize=True)
+	#print("Updating Google Sheet Report......")
+	#Vdiaria.clear()
+	#set_with_dataframe(worksheet=Vdiaria, dataframe=VentasDiaframe, include_index=False,
+	#include_column_header=True, resize=True)
 
 
 	#print(list(dlanew.columns.values))
